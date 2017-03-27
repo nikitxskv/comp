@@ -92,12 +92,11 @@ def run_cv(cv_pairs, params, hist_dict, num_boost_round=1000, verbose=True):
     hist_dict['max_auc'] = max(hist_dict['max_auc'], cv_result['auc'])
     hist_dict['min_logloss'] = min(hist_dict['min_logloss'], cv_result['logloss'])
     if verbose:
-        print '[{}/{}]\teval_time={:.2f} sec\tcurrent_auc={:.6f}\tmax_auc={:.6f}\tcurrent_logloss={:.6f}\tmin_logloss={:.6f}'.format(
+        print '[{}/{}]\teval_time={:.2f} sec\tcurrent_logloss={:.6f}\tmin_logloss={:.6f}\tcurrent_auc={:.6f}\tmax_auc={:.6f}'.format(
                                                         hist_dict['eval_num'], hist_dict['max_evals'], cv_result['eval_time'],
-                                                        cv_result['auc'], hist_dict['max_auc'],
-                                                        cv_result['logloss'], hist_dict['min_logloss']
-                                                        )
-    return {'loss': -cv_result['auc'], 'status': STATUS_OK}   #change loss to cv_result['logloss'] to optimize logloss
+                                                        cv_result['logloss'], hist_dict['min_logloss'],
+                                                        cv_result['auc'], hist_dict['max_auc'])
+    return {'loss': cv_result['logloss'], 'status': STATUS_OK}   #change loss to -cv_result['auc'] to optimize auc
 
 
 def get_final_score(dtrain, dtest, params, num_boost_round):
@@ -136,7 +135,7 @@ def main(dataset_path, max_evals, num_boost_round):
     print '\nBest params:\n{}\nBest num_boost_round: {}\n'.format(best_params, best_num_boost_round)
 
     logloss_score, auc_score = get_final_score(dtrain, dtest, preprocess_params(best_params), best_num_boost_round)
-    print 'Final scores:\nauc={}\tlogloss={}\n'.format(auc_score, logloss_score)
+    print 'Final scores:\nlogloss={}\tauc={}\n'.format(logloss_score, auc_score)
     
     hist_dict['final_results'] = (logloss_score, auc_score)
     with open('xgboost_history_%s.pkl' % dataset_path.replace("/", " ").strip().split()[-1], 'wb') as f:
