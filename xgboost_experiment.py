@@ -64,7 +64,8 @@ def split_and_preprocess(X_train, y_train, X_test, y_test, cat_indices, n_splits
 
 def preprocess_params(params):
     params_ = params.copy()
-    params_.update({'objective': 'binary:logistic', 'eval_metric': ['logloss', 'auc'], 'silent': 1})
+    params_.update({'objective': 'binary:logistic', 'eval_metric': ['logloss', 'auc'], 
+                    'tree_method': 'exact', 'silent': 1})
     params_['max_depth'] = int(params_['max_depth'])
     return params_
 
@@ -81,21 +82,26 @@ def run_cv(cv_pairs, params, hist_dict, num_boost_round=1000, verbose=True):
     mean_evals_results_auc = np.mean(evals_results_auc, axis=0)
     mean_evals_results_logloss = np.mean(evals_results_logloss, axis=0)
     best_num_boost_round = np.argmin(mean_evals_results_logloss) + 1
-    cv_result = {'loss': mean_evals_results_logloss[best_num_boost_round - 1], 
+    cv_result = {'logloss': mean_evals_results_logloss[best_num_boost_round - 1], 
                  'auc': mean_evals_results_auc[best_num_boost_round - 1],
                  'best_num_boost_round': best_num_boost_round, 
-                 'eval_time': time.time() - start_time,
-                 'status': STATUS_OK}
-    hist_dict['results'][tuple(params.items())] = cv_result
+                 'eval_time': time.time() - start_time}
+                 
+    hist_dict['results'][tuple(sorted(params.items()))] = cv_result
     hist_dict['eval_num'] += 1 
     hist_dict['max_auc'] = max(hist_dict['max_auc'], cv_result['auc'])
+    hist_dict['min_logloss'] = min(hist_dict['min_logloss'], cv_result['logloss'])
     if verbose:
-        print '[{}/{}] current_auc={}, max_auc={}'.format(hist_dict['eval_num'], hist_dict['max_evals'], cv_result['auc'], hist_dict['max_auc'])
-    return cv_result
+        print '[{}/{}]\teval_time={:.2f} sec\tcurrent_auc={:.6f}\tmax_auc={:.6f}\tcurrent_logloss={:.6f}\tmin_logloss={:.6f}'.format(
+                                                        hist_dict['eval_num'], hist_dict['max_evals'], cv_result['eval_time'],
+                                                        cv_result['auc'], hist_dict['max_auc'],
+                                                        cv_result['logloss'], hist_dict['min_logloss']
+                                                        )
+    return {'loss': -cv_result['auc'], 'status': STATUS_OK}   #change loss to cv_result['logloss'] to optimize logloss
 
 
 def get_final_score(dtrain, dtest, params, num_boost_round):
-    params.update({'objective': 'binary:logistic', 'eval_metric': ['logloss', 'auc']})
+    params = preprocess_params(params)
     bst = xgb.train(params, dtrain, num_boost_round=num_boost_round)
     pred = bst.predict(dtest)
     logloss_score = log_loss(dtest.get_label(), pred)
@@ -109,12 +115,14 @@ def get_best_params(cv_pairs, max_evals=1000, num_boost_round=1000):
              'subsample': hp.uniform('subsample', 0.5, 1),
              'colsample_bytree': hp.uniform('colsample_bytree', 0.5, 1),
              'colsample_bylevel': hp.uniform('colsample_bylevel', 0.5, 1),
+             'min_child_weight': hp.loguniform('min_child_weight', -1, 1),
+             'lambda': hp.loguniform('lambda', -1, 1),
     }
 
-    hist_dict = {'results': {}, 'eval_num': 0, 'max_evals': max_evals, 'max_auc': 0, }
+    hist_dict = {'results': {}, 'eval_num': 0, 'max_evals': max_evals, 'max_auc': 0, 'min_logloss': np.inf, }
     best_params = fmin(fn=lambda x: run_cv(cv_pairs, x, hist_dict, num_boost_round), 
                        space=space, algo=tpe.suggest, max_evals=max_evals, rseed=1)
-    best_num_boost_round = hist_dict['results'][tuple(best_params.items())]['best_num_boost_round']
+    best_num_boost_round = hist_dict['results'][tuple(sorted(best_params.items()))]['best_num_boost_round']
     return best_params, best_num_boost_round, hist_dict
 
 
@@ -128,7 +136,7 @@ def main(dataset_path, max_evals, num_boost_round):
     print '\nBest params:\n{}\nBest num_boost_round: {}\n'.format(best_params, best_num_boost_round)
 
     logloss_score, auc_score = get_final_score(dtrain, dtest, preprocess_params(best_params), best_num_boost_round)
-    print 'Final scores:\nlogloss={}\tauc={}\n'.format(logloss_score, auc_score)
+    print 'Final scores:\nauc={}\tlogloss={}\n'.format(auc_score, logloss_score)
     
     hist_dict['final_results'] = (logloss_score, auc_score)
     with open('xgboost_history_%s.pkl' % dataset_path.replace("/", " ").strip().split()[-1], 'wb') as f:
@@ -143,5 +151,4 @@ if __name__ == "__main__":
         num_boost_round = int(sys.argv[3])       #number of estimators in xgboost
         main(dataset_path, max_evals, num_boost_round)
     else:
-        print "Invalid params. Example: python xgboost_experiment.py ./adult 1000 2000"
-
+        print "Invalid params. Example: python xgboost_experiment.py ./adult 1000 1000"
