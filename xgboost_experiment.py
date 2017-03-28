@@ -4,6 +4,7 @@ from collections import defaultdict
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import log_loss, roc_auc_score
 from hyperopt import hp, fmin, tpe, STATUS_OK, Trials
+from datetime import datetime
 
 
 def read_file(file_name):
@@ -125,7 +126,7 @@ def get_best_params(cv_pairs, max_evals=1000, num_boost_round=1000):
     return best_params, best_num_boost_round, hist_dict
 
 
-def main(dataset_path, max_evals, num_boost_round):
+def main(dataset_path, output_folder_path, max_evals, num_boost_round):
     print 'Loading dataset...'
     X_train, y_train, X_test, y_test, cat_indices = read_data('%s' % dataset_path)
     cv_pairs, (dtrain, dtest) = split_and_preprocess(X_train, y_train, X_test, y_test, cat_indices)
@@ -138,16 +139,20 @@ def main(dataset_path, max_evals, num_boost_round):
     print 'Final scores:\nlogloss={}\tauc={}\n'.format(logloss_score, auc_score)
     
     hist_dict['final_results'] = (logloss_score, auc_score)
-    with open('xgboost_history_%s.pkl' % dataset_path.replace("/", " ").strip().split()[-1], 'wb') as f:
+
+    dataset_name = dataset_path.replace("/", " ").strip().split()[-1]
+    date = datetime.now().strftime("%Y%m%d-%H%M%S")
+    with open('{}xgboost_history_{}_{}.pkl'.format(output_folder_path, dataset_name, date), 'wb') as f:
         pickle.dump(hist_dict, f)
     print 'History is saved'
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 4:
+    if len(sys.argv) == 5:
         dataset_path = sys.argv[1]               #path to dataset
-        max_evals = int(sys.argv[2])             #number of hyperopt runs
-        num_boost_round = int(sys.argv[3])       #number of estimators in xgboost
-        main(dataset_path, max_evals, num_boost_round)
+        output_folder_path = sys.argv[2]         #path to output folder
+        max_evals = int(sys.argv[3])             #number of hyperopt runs
+        num_boost_round = int(sys.argv[4])       #number of estimators in xgboost
+        main(dataset_path, output_folder_path, max_evals, num_boost_round)
     else:
         print "Invalid params. Example: python xgboost_experiment.py ./adult 1000 1000"
