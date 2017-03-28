@@ -109,13 +109,13 @@ def get_final_score(dtrain, dtest, params, num_boost_round):
 
 
 def get_best_params(cv_pairs, max_evals=1000, num_boost_round=1000):
-    space = {'eta': hp.loguniform('eta', -3, 0),
+    space = {'eta': hp.loguniform('eta', -7, 0),
              'max_depth' : hp.quniform('max_depth', 1, 15, 1),
              'subsample': hp.uniform('subsample', 0.5, 1),
              'colsample_bytree': hp.uniform('colsample_bytree', 0.5, 1),
              'colsample_bylevel': hp.uniform('colsample_bylevel', 0.5, 1),
-             'min_child_weight': hp.loguniform('min_child_weight', -1, 1),
-             'lambda': hp.loguniform('lambda', -1, 1),
+             'min_child_weight': hp.loguniform('min_child_weight', -2, 2),
+             'lambda': hp.loguniform('lambda', -2, 2),
     }
 
     hist_dict = {'results': {}, 'eval_num': 0, 'max_evals': max_evals, 'max_auc': 0, 'min_logloss': np.inf, }

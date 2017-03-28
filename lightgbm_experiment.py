@@ -111,13 +111,13 @@ def get_final_score(dtrain, dtest, params, num_boost_round):
 
 
 def get_best_params(cv_pairs, max_evals=1000, num_boost_round=1000):
-    space = {'learning_rate': hp.loguniform('learning_rate', -3, 0),
+    space = {'learning_rate': hp.loguniform('learning_rate', -7, 0),
              'num_leaves' : hp.qloguniform('num_leaves', 0, 11, 1),
              'feature_fraction': hp.uniform('feature_fraction', 0.5, 1),
              'bagging_fraction': hp.uniform('bagging_fraction', 0.5, 1),
              'min_sum_hessian_in_leaf': hp.loguniform('min_sum_hessian_in_leaf', 1, 5),
-             'min_data_in_leaf': hp.loguniform('min_data_in_leaf', 3, 6),
-             'lambda_l2': hp.loguniform('lambda_l2', -1, 1),
+             'min_data_in_leaf': hp.loguniform('min_data_in_leaf', 2, 6),
+             'lambda_l2': hp.loguniform('lambda_l2', -2, 2),
     }
 
     hist_dict = {'results': {}, 'eval_num': 0, 'max_evals': max_evals, 'max_auc': 0, 'min_logloss': np.inf, }
