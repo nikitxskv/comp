@@ -111,18 +111,25 @@ def get_final_score(dtrain, dtest, params, num_boost_round):
 
 def get_best_params(cv_pairs, max_evals=1000, num_boost_round=1000):
     space = {'eta': hp.loguniform('eta', -7, 0),
-             'max_depth' : hp.quniform('max_depth', 1, 15, 1),
+             'max_depth' : hp.quniform('max_depth', 2, 10, 1),
              'subsample': hp.uniform('subsample', 0.5, 1),
              'colsample_bytree': hp.uniform('colsample_bytree', 0.5, 1),
              'colsample_bylevel': hp.uniform('colsample_bylevel', 0.5, 1),
-             'min_child_weight': hp.loguniform('min_child_weight', -2, 2),
-             'lambda': hp.loguniform('lambda', -2, 2),
+             'min_child_weight': hp.choice('min_child_weight', [0, hp.loguniform('min_child_weight_positive', -16, 5)]),
+             'alpha': hp.choice('alpha', [0, hp.loguniform('alpha_positive', -16, 2)]),
+             'lambda': hp.choice('lambda', [0, hp.loguniform('lambda_positive', -16, 2)]),
     }
 
     hist_dict = {'results': {}, 'eval_num': 0, 'max_evals': max_evals, 'max_auc': 0, 'min_logloss': np.inf, }
     best_params = fmin(fn=lambda x: run_cv(cv_pairs, x, hist_dict, num_boost_round), 
                        space=space, algo=tpe.suggest, max_evals=max_evals, rseed=1)
+
+    for param_name in ['min_child_weight', 'alpha', 'lambda']:
+        if best_params[param_name] == 1:
+            best_params[param_name] = best_params[param_name + '_positive']
+            del best_params[param_name + '_positive']
     best_num_boost_round = hist_dict['results'][tuple(sorted(best_params.items()))]['best_num_boost_round']
+
     return best_params, best_num_boost_round, hist_dict
 
 
@@ -142,9 +149,10 @@ def main(dataset_path, output_folder_path, max_evals, num_boost_round):
 
     dataset_name = dataset_path.replace("/", " ").strip().split()[-1]
     date = datetime.now().strftime("%Y%m%d-%H%M%S")
-    with open('{}xgboost_history_{}_{}.pkl'.format(output_folder_path, dataset_name, date), 'wb') as f:
+    output_filename = '{}xgboost_history_{}_{}.pkl'.format(output_folder_path, dataset_name, date)
+    with open(output_filename, 'wb') as f:
         pickle.dump(hist_dict, f)
-    print 'History is saved'
+    print 'History is saved to file {}'.format(output_filename)
 
 
 if __name__ == "__main__":
@@ -155,4 +163,4 @@ if __name__ == "__main__":
         num_boost_round = int(sys.argv[4])       #number of estimators in xgboost
         main(dataset_path, output_folder_path, max_evals, num_boost_round)
     else:
-        print "Invalid params. Example: python xgboost_experiment.py ./adult 1000 1000"
+        print "Invalid params. Example: python xgboost_experiment.py ./adult ./ 1000 5000"

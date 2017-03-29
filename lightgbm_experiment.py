@@ -3,7 +3,7 @@ import pickle, sys, time
 from collections import defaultdict
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import log_loss, roc_auc_score
-from hyperopt import hp, fmin, tpe, STATUS_OK, Trials
+from hyperopt import hp, fmin, tpe, STATUS_OK
 from datetime import datetime
 
 
@@ -69,6 +69,7 @@ def preprocess_params(params):
                     'bagging_freq': 1, 'verbose': -1})
     params_['num_leaves'] = max(int(params_['num_leaves']), 2)
     params_['min_data_in_leaf'] = int(params_['min_data_in_leaf'])
+    params_['max_bin'] = int(params_['max_bin'])
     return params_
 
 
@@ -95,9 +96,9 @@ def run_cv(cv_pairs, params, hist_dict, num_boost_round=1000, verbose=True):
     hist_dict['min_logloss'] = min(hist_dict['min_logloss'], cv_result['logloss'])
     if verbose:
         print '[{}/{}]\teval_time={:.2f} sec\tcurrent_logloss={:.6f}\tmin_logloss={:.6f}\tcurrent_auc={:.6f}\tmax_auc={:.6f}'.format(
-        												hist_dict['eval_num'], hist_dict['max_evals'], cv_result['eval_time'],
+                                                        hist_dict['eval_num'], hist_dict['max_evals'], cv_result['eval_time'],
                                                         cv_result['logloss'], hist_dict['min_logloss'],
-        												cv_result['auc'], hist_dict['max_auc'])
+                                                        cv_result['auc'], hist_dict['max_auc'])
     return {'loss': cv_result['logloss'], 'status': STATUS_OK}   #change loss to -cv_result['auc'] to optimize auc
 
 
@@ -113,18 +114,26 @@ def get_final_score(dtrain, dtest, params, num_boost_round):
 
 def get_best_params(cv_pairs, max_evals=1000, num_boost_round=1000):
     space = {'learning_rate': hp.loguniform('learning_rate', -7, 0),
-             'num_leaves' : hp.qloguniform('num_leaves', 0, 11, 1),
+             'num_leaves' : hp.qloguniform('num_leaves', 0, 7, 1),
              'feature_fraction': hp.uniform('feature_fraction', 0.5, 1),
              'bagging_fraction': hp.uniform('bagging_fraction', 0.5, 1),
-             'min_sum_hessian_in_leaf': hp.loguniform('min_sum_hessian_in_leaf', 1, 5),
-             'min_data_in_leaf': hp.loguniform('min_data_in_leaf', 2, 6),
-             'lambda_l2': hp.loguniform('lambda_l2', -2, 2),
+             'min_data_in_leaf': hp.qloguniform('min_data_in_leaf', 0, 6, 1),
+             'min_sum_hessian_in_leaf': hp.choice('min_sum_hessian_in_leaf', [0, hp.loguniform('min_sum_hessian_in_leaf_positive', -16, 5)]),
+             'lambda_l1': hp.choice('lambda_l1', [0, hp.loguniform('lambda_l1_positive', -16, 2)]),
+             'lambda_l2': hp.choice('lambda_l2', [0, hp.loguniform('lambda_l2_positive', -16, 2)]),
+             'max_bin': hp.qloguniform('max_bin', 0, 20, 1),
     }
 
     hist_dict = {'results': {}, 'eval_num': 0, 'max_evals': max_evals, 'max_auc': 0, 'min_logloss': np.inf, }
     best_params = fmin(fn=lambda x: run_cv(cv_pairs, x, hist_dict, num_boost_round), 
                        space=space, algo=tpe.suggest, max_evals=max_evals, rseed=1)
+
+    for param_name in ['min_sum_hessian_in_leaf', 'lambda_l1', 'lambda_l2']:
+        if best_params[param_name] == 1:
+            best_params[param_name] = best_params[param_name + '_positive']
+            del best_params[param_name + '_positive']
     best_num_boost_round = hist_dict['results'][tuple(sorted(best_params.items()))]['best_num_boost_round']
+
     return best_params, best_num_boost_round, hist_dict
 
 
@@ -144,9 +153,10 @@ def main(dataset_path, output_folder_path, max_evals, num_boost_round):
 
     dataset_name = dataset_path.replace("/", " ").strip().split()[-1]
     date = datetime.now().strftime("%Y%m%d-%H%M%S")
-    with open('{}lightgbm_history_{}_{}.pkl'.format(output_folder_path, dataset_name, date), 'wb') as f:
+    output_filename = '{}lightgbm_history_{}_{}.pkl'.format(output_folder_path, dataset_name, date)
+    with open(output_filename, 'wb') as f:
         pickle.dump(hist_dict, f)
-    print 'History is saved'
+    print 'History is saved to file {}'.format(output_filename)
 
 
 if __name__ == "__main__":
@@ -157,4 +167,4 @@ if __name__ == "__main__":
         num_boost_round = int(sys.argv[4])       #number of estimators in xgboost
         main(dataset_path, output_folder_path, max_evals, num_boost_round)
     else:
-        print "Invalid params. Example: python lightgbm_experiment.py ./adult 1000 1000"
+        print "Invalid params. Example: python lightgbm_experiment.py ./adult ./ 1000 5000"
