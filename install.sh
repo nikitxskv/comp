@@ -1,8 +1,10 @@
 sudo apt-get update
 sudo apt-get upgrade -y
-sudosudo apt-get install -y python-dev python-pip python-nose g++ libblas-dev git cmake gfortran liblapack-dev zlib1g-dev libjpeg-dev xvfb libav-tools xorg-dev python-opengl libboost-all-dev libsdl2-dev swig clang unzip htop python-setuptools libibnetdisc-dev
- pip install -U pip
-sudo pip install -U numpy pandas scipy matplotlib sklearn jupyter seaborn tqdm scikit-image hyperopt==0.0.2
+sudo apt-get install -y python-dev python-pip python-nose g++ libblas-dev git cmake gfortran liblapack-dev zlib1g-dev libjpeg-dev xvfb libav-tools xorg-dev python-opengl libboost-all-dev libsdl2-dev swig clang unzip htop python-setuptools libibnetdisc-dev
+sudo pip install -U pip
+sudo pip install -U numpy pandas scipy matplotlib sklearn jupyter seaborn tqdm scikit-image hyperopt
+sudo pip uninstall -y hyperopt
+sudo pip install hyperopt==0.0.2
 
 # XGBoost
 git clone --recursive https://github.com/dmlc/xgboost
