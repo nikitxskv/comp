@@ -1,4 +1,4 @@
-import pandas as pd, numpy as np, scipy as xgb
+import pandas as pd, numpy as np, xgboost as xgb
 import pickle, sys, time
 from collections import defaultdict
 from sklearn.model_selection import StratifiedKFold
