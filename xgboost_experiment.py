@@ -1,9 +1,9 @@
-import pandas as pd, numpy as np, xgboost as xgb
+import pandas as pd, numpy as np, scipy as xgb
 import pickle, sys, time
 from collections import defaultdict
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import log_loss, roc_auc_score
-from hyperopt import hp, fmin, tpe, STATUS_OK, Trials
+from hyperopt import hp, fmin, tpe, STATUS_OK
 from datetime import datetime
 
 
@@ -115,9 +115,9 @@ def get_best_params(cv_pairs, max_evals=1000, num_boost_round=1000):
              'subsample': hp.uniform('subsample', 0.5, 1),
              'colsample_bytree': hp.uniform('colsample_bytree', 0.5, 1),
              'colsample_bylevel': hp.uniform('colsample_bylevel', 0.5, 1),
-             'min_child_weight': hp.choice('min_child_weight', [0, hp.loguniform('min_child_weight_positive', -16, 5)]),
-             'alpha': hp.choice('alpha', [0, hp.loguniform('alpha_positive', -16, 2)]),
-             'lambda': hp.choice('lambda', [0, hp.loguniform('lambda_positive', -16, 2)]),
+             'min_child_weight': hp.loguniform('min_child_weight_positive', -16, 5),
+             'alpha': hp.loguniform('alpha_positive', -16, 2),
+             'lambda': hp.loguniform('lambda_positive', -16, 2),
     }
 
     hist_dict = {'results': {}, 'eval_num': 0, 'max_evals': max_evals, 'max_auc': 0, 'min_logloss': np.inf, }
@@ -163,4 +163,5 @@ if __name__ == "__main__":
         num_boost_round = int(sys.argv[4])       #number of estimators in xgboost
         main(dataset_path, output_folder_path, max_evals, num_boost_round)
     else:
-        print "Invalid params. Example: python xgboost_experiment.py ./adult ./ 1000 5000"
+        print "Using: python xgboost_experiment.py <path_to_dataset> <output_folder> <number_of_hyperopt_runs> <number_of_estimators>" \
+              "\nExample: python xgboost_experiment.py ./adult/ ./ 1000 5000"

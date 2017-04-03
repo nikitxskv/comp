@@ -118,9 +118,9 @@ def get_best_params(cv_pairs, max_evals=1000, num_boost_round=1000):
              'feature_fraction': hp.uniform('feature_fraction', 0.5, 1),
              'bagging_fraction': hp.uniform('bagging_fraction', 0.5, 1),
              'min_data_in_leaf': hp.qloguniform('min_data_in_leaf', 0, 6, 1),
-             'min_sum_hessian_in_leaf': hp.choice('min_sum_hessian_in_leaf', [0, hp.loguniform('min_sum_hessian_in_leaf_positive', -16, 5)]),
-             'lambda_l1': hp.choice('lambda_l1', [0, hp.loguniform('lambda_l1_positive', -16, 2)]),
-             'lambda_l2': hp.choice('lambda_l2', [0, hp.loguniform('lambda_l2_positive', -16, 2)]),
+             'min_sum_hessian_in_leaf': hp.loguniform('min_sum_hessian_in_leaf', -16, 5),
+             'lambda_l1': hp.loguniform('lambda_l1', -16, 2),
+             'lambda_l2': hp.loguniform('lambda_l2', -16, 2),
              'max_bin': hp.qloguniform('max_bin', 0, 20, 1),
     }
 
@@ -167,4 +167,5 @@ if __name__ == "__main__":
         num_boost_round = int(sys.argv[4])       #number of estimators in xgboost
         main(dataset_path, output_folder_path, max_evals, num_boost_round)
     else:
-        print "Invalid params. Example: python lightgbm_experiment.py ./adult ./ 1000 5000"
+        print "Using: python lightgbm_experiment.py <path_to_dataset> <output_folder> <number_of_hyperopt_runs> <number_of_estimators>" \
+              "\nExample: python lightgbm_experiment.py ./adult/ ./ 1000 5000"
