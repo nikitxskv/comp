@@ -5,20 +5,21 @@ from sklearn.model_selection import StratifiedKFold
 from hyperopt import fmin, tpe, STATUS_OK
 from datetime import datetime
 
+
 class Experiment(object):
 
-    def __init__(self, dataset_path, output_folder_path, max_evals, num_boost_round, gb_name):
+    def __init__(self, dataset_path, output_folder_path, max_evals, num_boost_round, gb_name, metric):
         self.dataset_path = dataset_path
         self.output_folder_path = output_folder_path
         self.max_evals = max_evals
         self.num_boost_round = num_boost_round
         self.gb_name = gb_name
+        self.metric = metric
 
     def read_file(self, file_name):
         X = pd.read_csv(file_name, sep='\t', header=None)
         X, y = np.array(X[range(4, X.shape[1])]), np.maximum(np.array(X[1]), 0)   #pd.DataFrame -> np.array, {-1, +1} -> {0, 1}
         return X, y
-
 
     def read_data(self, dataset_path):
         X_train, y_train = self.read_file('%strain_full3' % dataset_path)
@@ -26,34 +27,8 @@ class Experiment(object):
         cat_indices = np.array(pd.read_csv('%strain_full3.fd' % dataset_path, sep='\t', header=None)[0])
         return X_train, y_train, X_test, y_test, cat_indices
 
-
     def cat_to_counter(self, X_train, y_train, X_test, cat_indices):
-        train, test = X_train.copy().astype('object'), X_test.copy().astype('object')
-        for col_ind in cat_indices:
-            numerator, denominator = defaultdict(int), defaultdict(int) # cat_feature -> count of positive examples / of all examples
-            
-            # mesh indices of train set
-            indices = np.arange(train.shape[0])
-            np.random.seed(776)
-            np.random.shuffle(indices)
-            
-            # train
-            res = np.zeros(train.shape[0])
-            for index in indices:
-                key = train[index, col_ind]
-                res[index] = (numerator[key] + 1.) / (denominator[key] + 2.) # count probability of positive label
-                if y_train[index] == 1:
-                    numerator[key] += 1
-                denominator[key] += 1
-            train[:, col_ind] = res
-            
-            # test
-            res = np.zeros(X_test.shape[0])
-            for index in range(X_test.shape[0]):
-                key = test[index, col_ind]
-                res[index] = (numerator[key] + 1.) / (denominator[key] + 2.)
-            test[:, col_ind] = res
-        return train.astype('float'), test.astype('float')
+        pass
 
     def convert_to_dataset(self, data, label):
         pass
@@ -79,35 +54,30 @@ class Experiment(object):
 
     def run_cv(self, cv_pairs, params, hist_dict, num_boost_round=1000, verbose=True):
         params_ = self.preprocess_params(params)
-        evals_results_auc, evals_results_logloss, start_time = [], [], time.time()
+        evals_results, start_time = [], time.time()
         for dtrain, dtest in cv_pairs:
             evals_result = self.run_train(params_, dtrain, dtest, num_boost_round)
-            evals_results_auc.append(evals_result['test_auc'])   
-            evals_results_logloss.append(evals_result['test_logloss'])      
-        mean_evals_results_auc = np.mean(evals_results_auc, axis=0)
-        mean_evals_results_logloss = np.mean(evals_results_logloss, axis=0)
-        best_num_boost_round = np.argmin(mean_evals_results_logloss) + 1
-        cv_result = {'logloss': mean_evals_results_logloss[best_num_boost_round - 1], 
-                     'auc': mean_evals_results_auc[best_num_boost_round - 1],
+            evals_results.append(evals_result['test_{}'.format(self.metric)])
+        mean_evals_results = np.mean(evals_results, axis=0)
+        best_num_boost_round = np.argmin(mean_evals_results) + 1
+        cv_result = {self.metric: mean_evals_results[best_num_boost_round - 1],
                      'best_num_boost_round': best_num_boost_round, 
                      'eval_time': time.time() - start_time}
                      
         hist_dict['results'][tuple(sorted(params.items()))] = cv_result
         hist_dict['eval_num'] += 1 
-        hist_dict['max_auc'] = max(hist_dict['max_auc'], cv_result['auc'])
-        hist_dict['min_logloss'] = min(hist_dict['min_logloss'], cv_result['logloss'])
+        hist_dict['min_{}'.format(self.metric)] = min(hist_dict['min_{}'.format(self.metric)], cv_result[self.metric])
         if verbose:
-            print '[{}/{}]\teval_time={:.2f} sec\tcurrent_logloss={:.6f}\tmin_logloss={:.6f}\tcurrent_auc={:.6f}\tmax_auc={:.6f}'.format(
-                                                            hist_dict['eval_num'], hist_dict['max_evals'], cv_result['eval_time'],
-                                                            cv_result['logloss'], hist_dict['min_logloss'],
-                                                            cv_result['auc'], hist_dict['max_auc'])
-        return {'loss': cv_result['logloss'], 'status': STATUS_OK}   #change loss to -cv_result['auc'] to optimize auc
+            print '[{0}/{1}]\teval_time={2:.2f} sec\tcurrent_{3}={4:.6f}\tmin_{3}={5:.6f}'.format(
+                                                        hist_dict['eval_num'], hist_dict['max_evals'], cv_result['eval_time'],
+                                                        self.metric, cv_result[self.metric], hist_dict['min_{}'.format(self.metric)])
+        return {'loss': cv_result[self.metric], 'status': STATUS_OK}
 
 
     def get_final_score(self, dtrain, dtest, params, num_boost_round):
         params = self.preprocess_params(params)
         evals_result = self.run_train(params, dtrain, dtest, num_boost_round)
-        return evals_result['test_logloss'][-1], evals_result['test_auc'][-1]
+        return evals_result['test_{}'.format(self.metric)][-1]
 
     def get_params_space(self):
         pass
@@ -115,7 +85,7 @@ class Experiment(object):
     def get_best_params(self, cv_pairs, max_evals=1000, num_boost_round=1000):
         space = self.get_params_space()
 
-        hist_dict = {'results': {}, 'eval_num': 0, 'max_evals': max_evals, 'max_auc': 0, 'min_logloss': np.inf, }
+        hist_dict = {'results': {}, 'eval_num': 0, 'max_evals': max_evals, 'min_{}'.format(self.metric): np.inf}
         best_params = fmin(fn=lambda x: self.run_cv(cv_pairs, x, hist_dict, num_boost_round), 
                            space=space, algo=tpe.suggest, max_evals=max_evals, rseed=1)
 
@@ -137,10 +107,9 @@ class Experiment(object):
         best_params, best_num_boost_round, hist_dict = self.get_best_params(cv_pairs, self.max_evals, self.num_boost_round)
         print '\nBest params:\n{}\nBest num_boost_round: {}\n'.format(best_params, best_num_boost_round)
 
-        logloss_score, auc_score = self.get_final_score(dtrain, dtest, self.preprocess_params(best_params), best_num_boost_round)
-        print 'Final scores:\nlogloss={}\tauc={}\n'.format(logloss_score, auc_score)
-        
-        hist_dict['final_results'] = (logloss_score, auc_score)
+        score = self.get_final_score(dtrain, dtest, self.preprocess_params(best_params), best_num_boost_round)
+        print 'Final scores:\t{}={}\n'.format(self.metric, score)
+        hist_dict['final_results'] = score
 
         dataset_name = self.dataset_path.replace("/", " ").strip().split()[-1]
         date = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -148,3 +117,65 @@ class Experiment(object):
         with open(output_filename, 'wb') as f:
             pickle.dump(hist_dict, f)
         print 'History is saved to file {}'.format(output_filename)
+
+
+
+class ClassificationExperiment(Experiment):
+
+    def __init__(self, dataset_path, output_folder_path, max_evals, num_boost_round, gb_name):
+        Experiment.__init__(self, dataset_path, output_folder_path,
+                            max_evals, num_boost_round, gb_name, 'logloss')
+
+    def cat_to_counter(self, X_train, y_train, X_test, cat_indices):
+        train, test = X_train.copy().astype('object'), X_test.copy().astype('object')
+        for col_ind in cat_indices:
+            numerator, denominator = defaultdict(int), defaultdict(int) # cat_feature -> count of positive examples / of all examples
+            
+            indices = np.arange(train.shape[0])
+            np.random.seed(776)
+            np.random.shuffle(indices)  # mesh indices of train set
+            
+            res = np.zeros(train.shape[0])
+            for index in indices:
+                key = train[index, col_ind]
+                res[index] = (numerator[key] + 1.) / (denominator[key] + 2.) # count probability of positive label
+                numerator[key] += y_train[index]
+                denominator[key] += 1
+            train[:, col_ind] = res
+            
+            res = np.zeros(X_test.shape[0])
+            for index in range(X_test.shape[0]):
+                key = test[index, col_ind]
+                res[index] = (numerator[key] + 1.) / (denominator[key] + 2.)
+            test[:, col_ind] = res
+        return train.astype('float'), test.astype('float')
+
+
+class RegressionExperiment(Experiment):
+
+    def __init__(self, dataset_path, output_folder_path, max_evals, num_boost_round, gb_name):
+        Experiment.__init__(self, dataset_path, output_folder_path, max_evals, num_boost_round, gb_name, 'rmse')
+
+    def cat_to_counter(self, X_train, y_train, X_test, cat_indices):
+        train, test = X_train.copy().astype('object'), X_test.copy().astype('object')
+        for col_ind in cat_indices:
+            numerator, denominator = defaultdict(int), defaultdict(int) # cat_feature -> count of positive examples / of all examples
+            
+            indices = np.arange(train.shape[0])
+            np.random.seed(776)
+            np.random.shuffle(indices)  # mesh indices of train set
+            
+            res = np.zeros(train.shape[0])
+            for index in indices:
+                key = train[index, col_ind]
+                res[index] = numerator[key] / denominator[key] if denominator[key] > 0 else 0 # count probability of positive label
+                numerator[key] += y_train[index]
+                denominator[key] += 1
+            train[:, col_ind] = res
+            
+            res = np.zeros(X_test.shape[0])
+            for index in range(X_test.shape[0]):
+                key = test[index, col_ind]
+                res[index] = numerator[key] / denominator[key] if denominator[key] > 0 else 0
+            test[:, col_ind] = res
+        return train.astype('float'), test.astype('float')
