@@ -1,25 +1,37 @@
 import pandas as pd, numpy as np
 import pickle, time
 from collections import defaultdict
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, KFold
 from hyperopt import fmin, tpe, STATUS_OK
 from datetime import datetime
 
-
 class Experiment(object):
 
-    def __init__(self, dataset_path, output_folder_path, max_evals, num_boost_round, gb_name, metric):
+    def __init__(self, dataset_path, output_folder_path, max_evals,
+                 num_boost_round, gb_name, task_type):
         self.dataset_path = dataset_path
         self.output_folder_path = output_folder_path
         self.max_evals = max_evals
         self.num_boost_round = num_boost_round
         self.gb_name = gb_name
-        self.metric = metric
+        self.task_type = task_type
+        if self.task_type == "classification":
+            self.metric = "logloss"
+        elif self.task_type == "regression":
+            self.metric = "rmse"
+        else:
+            assert False, 'Task type must be "classification" or "regression"'
 
     def read_file(self, file_name):
         X = pd.read_csv(file_name, sep='\t', header=None)
-        X, y = np.array(X[range(4, X.shape[1])]), np.maximum(np.array(X[1]), 0)   #pd.DataFrame -> np.array, {-1, +1} -> {0, 1}
+        if self.task_type == "classification":
+            #pd.DataFrame -> np.array, {-1, +1} -> {0, 1}
+            y = np.maximum(np.array(X[1]), 0)
+        else:
+            y = np.array(X[1])
+        X = np.array(X[range(4, X.shape[1])])
         return X, y
+
 
     def read_data(self, dataset_path):
         X_train, y_train = self.read_file('%strain_full3' % dataset_path)
@@ -27,15 +39,48 @@ class Experiment(object):
         cat_indices = np.array(pd.read_csv('%strain_full3.fd' % dataset_path, sep='\t', header=None)[0])
         return X_train, y_train, X_test, y_test, cat_indices
 
+
     def cat_to_counter(self, X_train, y_train, X_test, cat_indices):
-        pass
+        train, test = X_train.copy().astype('object'), X_test.copy().astype('object')
+        for col_ind in cat_indices:
+            # cat_feature -> count of positive examples / of all examples
+            numerator, denominator = defaultdict(int), defaultdict(int)
+            
+            # mesh indices of train set
+            indices = np.arange(train.shape[0])
+            np.random.seed(776)
+            np.random.shuffle(indices)
+            
+            # train
+            res = np.zeros(train.shape[0])
+            for index in indices:
+                key = train[index, col_ind]
+                # count probability of positive label
+                if self.task_type == "classification":
+                    res[index] = (numerator[key] + 1.) / (denominator[key] + 2.)
+                else:
+                    res[index] = numerator[key] / denominator[key] if denominator[key] > 0 else 0
+                numerator[key] += y_train[index]
+                denominator[key] += 1
+            train[:, col_ind] = res
+            
+            # test
+            res = np.zeros(X_test.shape[0])
+            for index in range(X_test.shape[0]):
+                key = test[index, col_ind]
+                res[index] = (numerator[key] + 1.) / (denominator[key] + 2.)
+            test[:, col_ind] = res
+        return train.astype('float'), test.astype('float')
 
     def convert_to_dataset(self, data, label):
         pass
 
     def split_and_preprocess(self, X_train, y_train, X_test, y_test, cat_indices, n_splits=5, random_state=0):
         cv_pairs = []
-        cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+        if self.task_type == "classification":
+            cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+        else:
+            cv = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
         for train_index, test_index in cv.split(X_train, y_train):
             train, test = self.cat_to_counter(X_train[train_index], y_train[train_index], X_train[test_index], cat_indices)
             dtrain = self.convert_to_dataset(train, y_train[train_index])
@@ -117,65 +162,3 @@ class Experiment(object):
         with open(output_filename, 'wb') as f:
             pickle.dump(hist_dict, f)
         print 'History is saved to file {}'.format(output_filename)
-
-
-
-class ClassificationExperiment(Experiment):
-
-    def __init__(self, dataset_path, output_folder_path, max_evals, num_boost_round, gb_name):
-        Experiment.__init__(self, dataset_path, output_folder_path,
-                            max_evals, num_boost_round, gb_name, 'logloss')
-
-    def cat_to_counter(self, X_train, y_train, X_test, cat_indices):
-        train, test = X_train.copy().astype('object'), X_test.copy().astype('object')
-        for col_ind in cat_indices:
-            numerator, denominator = defaultdict(int), defaultdict(int) # cat_feature -> count of positive examples / of all examples
-            
-            indices = np.arange(train.shape[0])
-            np.random.seed(776)
-            np.random.shuffle(indices)  # mesh indices of train set
-            
-            res = np.zeros(train.shape[0])
-            for index in indices:
-                key = train[index, col_ind]
-                res[index] = (numerator[key] + 1.) / (denominator[key] + 2.) # count probability of positive label
-                numerator[key] += y_train[index]
-                denominator[key] += 1
-            train[:, col_ind] = res
-            
-            res = np.zeros(X_test.shape[0])
-            for index in range(X_test.shape[0]):
-                key = test[index, col_ind]
-                res[index] = (numerator[key] + 1.) / (denominator[key] + 2.)
-            test[:, col_ind] = res
-        return train.astype('float'), test.astype('float')
-
-
-class RegressionExperiment(Experiment):
-
-    def __init__(self, dataset_path, output_folder_path, max_evals, num_boost_round, gb_name):
-        Experiment.__init__(self, dataset_path, output_folder_path, max_evals, num_boost_round, gb_name, 'rmse')
-
-    def cat_to_counter(self, X_train, y_train, X_test, cat_indices):
-        train, test = X_train.copy().astype('object'), X_test.copy().astype('object')
-        for col_ind in cat_indices:
-            numerator, denominator = defaultdict(int), defaultdict(int) # cat_feature -> count of positive examples / of all examples
-            
-            indices = np.arange(train.shape[0])
-            np.random.seed(776)
-            np.random.shuffle(indices)  # mesh indices of train set
-            
-            res = np.zeros(train.shape[0])
-            for index in indices:
-                key = train[index, col_ind]
-                res[index] = numerator[key] / denominator[key] if denominator[key] > 0 else 0 # count probability of positive label
-                numerator[key] += y_train[index]
-                denominator[key] += 1
-            train[:, col_ind] = res
-            
-            res = np.zeros(X_test.shape[0])
-            for index in range(X_test.shape[0]):
-                key = test[index, col_ind]
-                res[index] = numerator[key] / denominator[key] if denominator[key] > 0 else 0
-            test[:, col_ind] = res
-        return train.astype('float'), test.astype('float')
