@@ -1,0 +1,171 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[russian]{babel}
+\usepackage{vmargin}
+\setpapersize{A4}
+\setmarginsrb{2cm}{1.5cm}{1cm}{1.5cm}{0pt}{0mm}{0pt}{13mm}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+\usepackage{amsfonts,amssymb}
+\usepackage{amsthm}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[usenames]{color}
+\usepackage{colortbl}
+\usepackage{xcolor}
+\colorlet{linkequation}{red}
+\usepackage[colorlinks]{hyperref}
+\usepackage{cancel}
+\usepackage{tcolorbox}
+\usepackage{graphicx}
+\usepackage{mathtools}
+\usepackage{multicol}
+\usepackage{paralist}
+
+\newcommand{\argmin}{\mathop{\rm arg\,min}\limits}
+\newcommand{\argmax}{\mathop{\rm arg\,max}\limits}
+\newcommand{\sign}{\mathop{\rm sign}\limits}
+\newcommand{\cond}{\mspace{3mu}{|}\mspace{3mu}}
+
+\def\RR{\mathbb{R}}
+\def\XX{\mathbb{X}}
+\def\EE{\mathbb{E}}
+\def\NN{\mathcal{N}}
+\def\LL{\mathcal{L}}
+\def\YY{\mathbb{Y}}
+\def\OO{\mathcal{O}}
+
+\sloppy
+
+\title{Описание формата сравнения.}
+\date{Апрель, 2017}
+
+\begin{document}
+
+\maketitle
+\noindent\textbf{Входные данные.}
+\medskip
+
+Все эксперименты проводились на следующих датасетах.
+
+Для задач классификации:
+
+\noindent Adult, amazon, appet, click, criteo, internet, kdd98, kddchurn, kick, paribas, springleaf, upsel.
+
+Для задач регрессии:
+
+\noindent Allstate, bimbo, liberty.
+
+Все датасеты разбивались на обучающую и тестовую части в соотношении 4:1 соответственно. Обозначим их за $(X_{full\_train}, y_{full\_train})$ и $(X_{test}, y_{test})$.
+
+\medskip
+\noindent\textbf{Предобработка датасета.}
+\medskip
+
+Итак, на входе имеется обучающая $(X_{full\_train}, y_{full\_train})$ и тестовая $(X_{test}, y_{test})$ выборки, а также список номеров колонок категориальных признаков.
+
+В экспериментах используется 5-фолдовая кросс-валидация. Поэтому $(X_{full\_train}, y_{full\_train})$ разбивается на 5 подвыборок $(X_1, y_1), \dots, (X_5, y_5)$, и из них конструируется 5 выборок вида $(X^{train}_i, y^{train}_i)$, $(X^{val}_i, y^{val}_i)$ таким образом, что $(X^{val}_i, y^{val}_i)$ совпадает с $(X_i, y_i)$, а $(X^{train}_i,y^{train}_i)$ совпадает с $\cup_{j\neq i}(X_j, y_j)$.
+
+Далее, для каждой такой пары, мы предобрабатываем категориальные признаки по следующей схеме.
+
+Пусть имеется обучающая $(X^{train}, y^{train})$ и валидационная $(X^{val}, y^{val})$ выборки. Для простоты обозначений будем считать, что все признаки категориальные. Вводим понятие времени в обучающей выборке.
+На выборках, в которых рисутствует признак "время" \--- упорядочиваем все по нему, если же такого признака нет, то производим случайную перестановку объектов. Считаем, что для задач классификации метки классов принадлежат множеству \{0, 1\}. Далее, для каждого j-го признака и i-го объекта, считаются 2 числа $a_{ij}$ и $b_{ij}$:
+
+$$a_{ij} = \sum_{k=1}^{i - 1}[X^{train}_{ij} = X^{train}_{kj}]y^{train}_{kj},$$
+
+$$b_{ij} = \sum_{k=1}^{i - 1}[X^{train}_{ij} = X^{train}_{kj}] \text{, где } [\dots] \text{- индикатор.}$$
+
+Теперь в обучающей выборке категориальные признаки заменяются на числовые по следующей формуле.
+
+\textbf{Для задач классификации:}
+
+$$X^{train}_{ij} = \frac{a_{ij} + 1}{b_{ij} + 2}.$$
+
+\textbf{Для задач регрессии:}
+
+$$X^{train}_{ij} = \begin{cases} \frac{a_{ij}}{b_{ij}}, & \mbox{if } b_{ij} \neq 0  \\ 0, & \mbox{if } b_{ij} = 0 \end{cases}.$$
+
+Далее необходимо заменить категориальные признаки в валидационной выборке. Для этого, для каждого j-го признака и i-го объекта так же считаются 2 числа $c_{ij}$ и $d_{ij}$:
+
+$$c_{ij} = \sum_{k}[X^{val}_{ij} = X^{train}_{kj}]y^{train}_{kj},$$
+
+$$d_{ij} = \sum_{k}[X^{val}_{ij} = X^{train}_{kj}] \text{, где } [\dots] \text{- индикатор.}$$
+
+Теперь в валидационной выборке категориальные признаки заменяются на числовые по следующей формуле.
+
+\textbf{Для задач классификации:}
+
+$$X^{val}_{ij} = \frac{c_{ij} + 1}{d_{ij} + 2}.$$
+
+\textbf{Для задач регрессии:}
+
+$$X^{val}_{ij} = \begin{cases} \frac{c_{ij}}{d_{ij}}, & \mbox{if } d_{ij} \neq 0  \\ 0, & \mbox{if } d_{ij} = 0 \end{cases}.$$
+
+
+Таким образом получилось 5 пар (обучающая и валидационная) выборок, которые содержат только числовые значения.
+
+Далее, для исходных выборок $(X_{full\_train}, y_{full\_train})$ и $(X_{test}, y_{test})$, также заменим категориальные признаки на числовые по той же самой схеме, что и для $(X^{train}, y^{train})$ и $(X^{val}, y^{val})$.
+
+\medskip
+\noindent\textbf{Сетка параметров.}
+\medskip
+
+Параметры подбираются с помощью библиотеки hyperopt. Ниже приведен список подбираемых параметров и распределений, откуда они выбирались для каждого алгоритма:
+
+\medskip
+\noindent XGBoost.
+\begin{itemize}
+  \item 'eta': Логравномерное распределение $[e^{-7}, 1]$
+  \item 'max\_depth' : Дискретное равномерное распределение $[2, 10]$
+  \item 'subsample': Равномерное $[0.5, 1]$
+  \item 'colsample\_bytree': Равномерное $[0.5, 1]$
+  \item 'colsample\_bylevel': Равномерное $[0.5, 1]$
+  \item 'min\_child\_weight': Логравномерное распределение $[e^{-16}, e^{5}]$
+  \item 'alpha': Логравномерное распределение $[e^{-16}, e^{2}]$
+  \item 'lambda': Логравномерное распределение $[e^{-16}, e^{2}]$
+\end{itemize}
+
+\medskip
+\noindent LightGBM.
+\begin{itemize}
+  \item 'learning\_rate': Логравномерное распределение $[e^{-7}, 1]$
+  \item 'num\_leaves' : Дискретное логравномерное распределение $[1, e^{7}]$
+  \item 'feature\_fraction': Равномерное $[0.5, 1]$
+  \item 'bagging\_fraction': Равномерное $[0.5, 1]$
+  \item 'min\_sum\_hessian\_in\_leaf': Логравномерное распределение $[e^{-16}, e^{5}]$
+  \item 'min\_data\_in\_leaf':  Дискретное логравномерное распределение $[1, e^{6}]$
+  \item 'lambda\_l1': Логравномерное распределение $[e^{-16}, e^{2}]$
+  \item 'lambda\_l2': Логравномерное распределение $[e^{-16}, e^{2}]$
+  \item 'max\_bin': Дискретное логравномерное распределение $[1, e^{20}]$
+\end{itemize}
+
+\medskip
+\noindent\textbf{Подбор параметров.}
+\medskip
+
+При подборе, в каждом алгоритме выставляется параметр, отвечающий за максимальное число деревьев, равный 2000. Далее, для каждого конкретного набора параметров, в каждом из 5 фолдов, при добавлении очередного дерева в алгоритм, подсчитываются значения метрик на валидационной выборке. В итоге получается 5 2000-мерных векторов, которые усредняются в один вектор, по которому берется аргмаксимум. Полученное число и является оптимальным количеством деревьев для данного набора параметров.
+
+В итоге, производилось 1000 итераций подбора параметров и выбирались те параметры, на которых получалась наилучшая метрика LogLoss.
+
+
+\medskip
+\noindent\textbf{Итоговый результат.}
+\medskip
+
+В итоге, в алгоритме выставляются оптимальные параметры, и запускается обучение на предобработанном $(X_{full\_train}, y_{full\_train})$. После этого вычисляется значение метрики LogLoss на предобработанной тестовой выборке $(X_{test}, y_{test})$.
+
+\medskip
+\noindent\textbf{Версии библиотек.}
+
+\begin{itemize}
+  \item xgboost (0.6)
+  \item scikit-learn (0.18.1)
+  \item scipy (0.19.0)
+  \item pandas (0.19.2)
+  \item numpy (1.12.1)
+  \item lightgbm (0.1)
+  \item hyperopt (0.0.2)
+\end{itemize}
+
+
+\end{document}

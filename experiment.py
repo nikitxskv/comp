@@ -68,7 +68,10 @@ class Experiment(object):
             res = np.zeros(X_test.shape[0])
             for index in range(X_test.shape[0]):
                 key = test[index, col_ind]
-                res[index] = (numerator[key] + 1.) / (denominator[key] + 2.)
+                if self.task_type == "classification":
+                    res[index] = (numerator[key] + 1.) / (denominator[key] + 2.)
+                else:
+                    res[index] = numerator[key] / denominator[key] if denominator[key] > 0 else 0
             test[:, col_ind] = res
         return train.astype('float'), test.astype('float')
 
