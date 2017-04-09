@@ -53,13 +53,13 @@ docker run --workdir /root -v <path_to_local_folder>:/root/shared -p 80:8888 -it
 
 
     * Пример запуска из командной строки:
-    ```
+
     python run.py xgb classification -i ./amazon/ -n 2 -t 10
-    ```
+
 
     * Пример запуска из интерпретатора:
-    ```
+
     from xgboost_experiment import XGBExperiment
     xgb_exp = XGBExperiment("classification", "./amazon/", n_iters=2, n_estimators=10)
     xgb_exp.run()
-    ```
+
