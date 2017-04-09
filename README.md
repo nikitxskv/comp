@@ -39,8 +39,8 @@ docker run --workdir /root -v <path_to_local_folder>:/root/shared -p 80:8888 -it
 
     Опциональные аргументы:
       -h [ --help ]                  Хелп
-      -i [ --dataset_path ]          Путь к папке с датасетом
-      -o [ --output_folder_path ]    Путь к папке с результатом
+      -i [ --dataset_path ]          Путь к папке с датасетом (str, по умолчанию "./")
+      -o [ --output_folder_path ]    Путь к папке с результатом (str, по умолчанию "./")
       -t [ --n_estimators ]          Количество деревьев (int, по умолчанию 2000)
       -n [ --n_iters ]               Количество итераций hyperopt'a (int, по умолчанию 50)
       -s [ --save_pred ]             Сохранять предсказания на тесте (bool, по умолчанию False)
