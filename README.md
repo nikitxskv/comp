@@ -42,8 +42,8 @@ docker run --workdir /root -v <path_to_local_folder>:/root/shared -p 80:8888 -it
   -o [ --output_folder_path ]       Путь к папке с результатом
   -t [ --n_estimators ]             Количество деревьев (int, по умолчанию 2000)
   -n [ --n_iters ]                  Количество итераций hyperopt'a (int, по умолчанию 50)
-  --holdout                         Размер Holdout части (float, по умолчанию -1 (не используется))
   -s [ --save_pred ]                Сохранять предсказания на тесте (bool, по умолчанию False)
+  --holdout                         Размер Holdout части (float, по умолчанию -1 (не используется))
 ```
 
 * Usage:
