@@ -6,9 +6,9 @@ from experiment import Experiment
 
 class XGBExperiment(Experiment):
 
-    def __init__(self, dataset_path, output_folder_path, max_evals, num_boost_round, task_type):
-        Experiment.__init__(self, dataset_path, output_folder_path,
-                            max_evals, num_boost_round, "xgboost", task_type)
+    def __init__(self, task_type, dataset_path="./", output_folder_path="./", n_iters=50, n_estimators=2000, holdout=-1, is_save_pred=False):
+        Experiment.__init__(self, task_type, dataset_path, output_folder_path,
+                            n_iters, n_estimators, "xgboost", holdout, is_save_pred)
 
 
     def convert_to_dataset(self, data, label):

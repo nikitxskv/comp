@@ -1,25 +1,29 @@
 import sys
 from xgboost_experiment import XGBExperiment
 from lightgbm_experiment import LGBExperiment
+import argparse
+
+def createParser ():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('algo', choices=["xgb", "lgb"])
+    parser.add_argument('learning_task', choices=["classification", "regression"])
+    parser.add_argument('-i', '--dataset_path', default='./')
+    parser.add_argument('-o', '--output_folder_path', default='./')
+    parser.add_argument('-t', '--n_estimators', type=int, default=2000)
+    parser.add_argument('-n', '--n_iters', type=int, default=50)
+    parser.add_argument('--holdout', type=float, default=-1)
+    parser.add_argument('-s', '--save_pred', action='store_const', const=True)
+    return parser
 
 if __name__ == "__main__":
-    if len(sys.argv) == 7:
-        model = sys.argv[1]                      #model: xgb or lgb
-        learning_task = sys.argv[2]              #path to output folder
-        dataset_path = sys.argv[3]               #path to dataset
-        output_folder_path = sys.argv[4]         #path to output folder
-        max_evals = int(sys.argv[5])             #number of hyperopt runs
-        num_boost_round = int(sys.argv[6])       #number of estimators
+    parser = createParser()
+    namespace = parser.parse_args(sys.argv[1:])
 
-        if model == 'xgb':
-            experiment = XGBExperiment(dataset_path, output_folder_path,
-                                       max_evals, num_boost_round, learning_task)
-        elif model == 'lgb':
-            experiment = LGBExperiment(dataset_path, output_folder_path,
-                                       max_evals, num_boost_round, learning_task)
-        else:
-            assert False, 'Model must be "xgb" or "lgb"'
-        experiment.run()
-    else:
-        print "Using: python run.py <model> <learning_task> <path_to_dataset> <output_folder> <number_of_hyperopt_runs> <number_of_estimators>" \
-              "\nExample: python run.py xgb classification ./adult/ ./ 500 5000"
+    if namespace.algo == 'xgb':
+        Experiment = XGBExperiment
+    elif namespace.algo == 'lgb':
+        Experiment = LGBExperiment
+
+    experiment = Experiment(namespace.learning_task, namespace.dataset_path, namespace.output_folder_path, namespace.n_iters,
+        namespace.n_estimators, namespace.holdout, namespace.save_pred)
+    experiment.run()
