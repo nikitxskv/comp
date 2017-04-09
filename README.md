@@ -33,17 +33,17 @@ docker run --workdir /root -v <path_to_local_folder>:/root/shared -p 80:8888 -it
 * Параметры:
 ```
 Позиционные (обязательные) аргументы:
-  algo                                  Имя алгоритма {xgb, lgb}
-  learning_task                         Вид задачи {classification, regression}
+  algo                              Имя алгоритма {xgb, lgb}
+  learning_task                     Вид задачи {classification, regression}
 
 Опциональные аргументы:
-  -h [ --help ]                         Хелп
-  -i [ --dataset_path ]                 Путь к папке с датасетом
-  -o [ --output_folder_path ]           Путь к папке с результатом
-  -t [ --n_estimators ]                 Количество деревьев (int, по умолчанию 2000)
-  -n [ --n_iters ]                      Количество итераций hyperopt'a (int, по умолчанию 50)
-  --holdout                             Размер Holdout части (float, по умолчанию -1 (не используется))
-  -s [ --save_pred ]                    Сохранять предсказания на тесте (bool, по умолчанию False)
+  -h [ --help ]                     Хелп
+  -i [ --dataset_path ]             Путь к папке с датасетом
+  -o [ --output_folder_path ]       Путь к папке с результатом
+  -t [ --n_estimators ]             Количество деревьев (int, по умолчанию 2000)
+  -n [ --n_iters ]                  Количество итераций hyperopt'a (int, по умолчанию 50)
+  --holdout                         Размер Holdout части (float, по умолчанию -1 (не используется))
+  -s [ --save_pred ]                Сохранять предсказания на тесте (bool, по умолчанию False)
 ```
 
 * Usage:
