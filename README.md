@@ -31,7 +31,7 @@ docker run --workdir /root -v <path_to_local_folder>:/root/shared -p 80:8888 -it
 * Можно запускать либо из командной строки, либо из интерпретатора, импортируя нужный класс.
 
 * Параметры:
-
+```
 Позиционные (обязательные) аргументы:
   algo                                  Имя алгоритма {xgb, lgb}
   learning_task                         Вид задачи {classification, regression}
@@ -44,20 +44,24 @@ docker run --workdir /root -v <path_to_local_folder>:/root/shared -p 80:8888 -it
   -n [ --n_iters ]                      Количество итераций hyperopt'a (int, по умолчанию 50)
   --holdout                             Размер Holdout части (float, по умолчанию -1 (не используется))
   -s [ --save_pred ]                    Сохранять предсказания на тесте (bool, по умолчанию False)
-
+```
 
 * Usage:
-
+```
 usage: run.py algo learning_task [-h] [-i DATASET_PATH] [-o OUTPUT_FOLDER_PATH] [-t N_ESTIMATORS]
           [-n N_ITERS] [--holdout HOLDOUT] [-s]
-
+```
 
 * Примеры запуска
     * Из командной строки:
+    ```
     python run.py xgb classification -i ./amazon/ -n 2 -t 10
+    ```
 
     * Из интерпретатора:
+    ```
     from xgboost_experiment import XGBExperiment
     xgb_exp = XGBExperiment("classification", "./amazon/", n_iters=2, n_estimators=10)
     xgb_exp.run()
+    ```
 
